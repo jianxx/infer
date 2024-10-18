@@ -407,11 +407,20 @@ module MethodInfo = struct
   let get_hack_kind = function HackInfo {kind} -> Some kind | _ -> None
 end
 
-type unresolved_reason = MaybeMissingDueToMissedCapture | MaybeMissingDueToIncompleteModel
+type unresolved_reason =
+  | ClassNameNotFound
+  | CurryInfoNotFound
+  | MaybeMissingDueToMissedCapture
+  | MaybeMissingDueToIncompleteModel
+[@@deriving show {with_path= false}]
 
-type resolution_result =
-  | ResolvedTo of MethodInfo.t
-  | Unresolved of {missed_captures: Typ.Name.Set.t; unresolved_reason: unresolved_reason option}
+type unresolved_data = {missed_captures: Typ.Name.Set.t; unresolved_reason: unresolved_reason option}
+
+let mk_unresolved_data ?(missed_captures = Typ.Name.Set.empty) unresolved_reason =
+  {missed_captures; unresolved_reason}
+
+
+type resolution_result = (MethodInfo.t, unresolved_data) Result.t
 
 let is_hack_model source_file =
   let source_file = SourceFile.to_abs_path source_file in
@@ -490,16 +499,16 @@ let resolve_method ~method_exists tenv class_name proc_name =
   in
   match resolve_name class_name with
   | _ when not (Typ.Name.Set.is_empty !missed_capture_types) ->
-      Unresolved
+      Error
         { missed_captures= !missed_capture_types
         ; unresolved_reason= Some MaybeMissingDueToMissedCapture }
   | None ->
       let unresolved_reason =
         if !visited_hack_model then Some MaybeMissingDueToIncompleteModel else None
       in
-      Unresolved {missed_captures= !missed_capture_types; unresolved_reason}
+      Error {missed_captures= !missed_capture_types; unresolved_reason}
   | Some method_info ->
-      ResolvedTo method_info
+      Ok method_info
 
 
 let find_cpp_destructor tenv class_name =

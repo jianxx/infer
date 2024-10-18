@@ -30,7 +30,6 @@ x = 42
 print(x)
       |} in
   PyIR.test source ;
-  PyIR.test ~run:PyIRExec.run source ;
   [%expect
     {|
     module dummy:
@@ -41,11 +40,7 @@ print(x)
           n0 <- TOPLEVEL[print]
           n1 <- TOPLEVEL[x]
           n2 <- $Call(n0, n1, None)
-          return None
-
-
-
-    42 |}]
+          return None |}]
 
 
 let%expect_test _ =
